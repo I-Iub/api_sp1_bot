@@ -14,12 +14,12 @@ CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 # проинициализируйте бота здесь,
 # чтобы он был доступен в каждом нижеобъявленном методе,
 # и не нужно было прокидывать его в каждый вызов
-bot = ...
+bot = telegram.Bot(token=TELEGRAM_TOKEN)  # !
 
 
 def parse_homework_status(homework):
-    homework_name = ...
-    if ...
+    homework_name = homework['homework_name']  # !
+    if homework['status'] == 'rejected':  # !
         verdict = 'К сожалению, в работе нашлись ошибки.'
     else:
         verdict = 'Ревьюеру всё понравилось, работа зачтена!'
@@ -27,12 +27,15 @@ def parse_homework_status(homework):
 
 
 def get_homeworks(current_timestamp):
-    homework_statuses = ...
+    url = 'https://praktikum.yandex.ru/api/user_api/homework_statuses/'  # !
+    headers = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}  # !
+    payload = {'from_date': 2629743}  # !
+    homework_statuses = requests.get(url, headers=headers, params=payload)  # !
     return homework_statuses.json()
 
 
 def send_message(message):
-    return bot.send_message(...)
+    return bot.send_message(CHAT_ID, message)
 
 
 def main():
@@ -40,7 +43,10 @@ def main():
 
     while True:
         try:
-            ...
+            homeworks = get_homeworks(current_timestamp)  # !
+            homework = homeworks['homeworks'][0]
+            message = parse_homework_status(homework)  # !
+            send_message(message)  # !
             time.sleep(5 * 60)  # Опрашивать раз в пять минут
 
         except Exception as e:
