@@ -4,8 +4,14 @@ import time
 import requests
 import telegram
 from dotenv import load_dotenv
-# from logging import FileHandler, StreamHandler
 import json
+import tg_logger
+
+load_dotenv()
+
+PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -14,16 +20,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('my_logger.log')
+file_handler = logging.FileHandler('program.log')
 stream_handler = logging.StreamHandler()
 logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
-load_dotenv()
-
-PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+logger_for_tg = logging.getLogger(__name__)
+logger_for_tg.setLevel(logging.ERROR)
+tg_logger.setup(logger_for_tg, token=TELEGRAM_TOKEN, users=[CHAT_ID])
 
 # проинициализируйте бота здесь,
 # чтобы он был доступен в каждом нижеобъявленном методе,
@@ -49,18 +53,21 @@ def get_homeworks(current_timestamp):
 
 
 def send_message(message):
+    logger.info('send_message is called')
     return bot.send_message(CHAT_ID, message)
 
 
 def main():
     current_timestamp = int(time.time())  # Начальное значение timestamp
     current_status = {'homework': None}
+    logger.debug('Bot launched')
     while True:
         try:
             homeworks = get_homeworks(current_timestamp - 2629743)  # !
             homework = homeworks['homeworks'][0]  # !
             if (current_status['homework'] != homework
                and current_status['homework'] != None):
+                logger.info('Изменение статуса домашки')
                 message = parse_homework_status(homework)  # !
                 send_message(message)  # !
                 current_status['homework'] = homework
@@ -71,6 +78,7 @@ def main():
 
         except Exception as e:
             print(f'Бот упал с ошибкой: {e}')
+            logger.error(f'{e}')
             time.sleep(5)
 
 
