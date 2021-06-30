@@ -7,8 +7,6 @@ import telegram
 import tg_logger
 from dotenv import load_dotenv
 
-import pprint  # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 load_dotenv()
 
 PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
@@ -45,7 +43,7 @@ def parse_homework_status(homework):
     else:
         homework_name = homework.get('homework_name')
         verdict = verdicts.get(homework.get('status'))
-        return f'Состояние работы "{homework_name}":\n\n{verdict}'
+        return f'У вас проверили работу "{homework_name}":\n\n{verdict}'
 
 
 # словарь-хеш для хранения "current_date",
@@ -55,7 +53,10 @@ current_date = {'timestamp': None}
 
 def get_homeworks(current_timestamp):
     if current_date.get('timestamp') is not None:
-        payload = {'from_date': current_date.get('timestamp')}
+        # -13 - чтобы снизить вероятность изменения статуса домашки между
+        # запросами, немного наложим интервалы времени от "from_date" до
+        # момента запроса:
+        payload = {'from_date': current_date.get('timestamp') - 13}
     else:
         payload = {'from_date': current_timestamp}
     headers = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
@@ -63,12 +64,12 @@ def get_homeworks(current_timestamp):
         PRAKTIKUM_URL, headers=headers, params=payload
     )
     homework_statuses_json = homework_statuses.json()
-    print('homework_statuses_json:', homework_statuses_json)  # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     current_date['timestamp'] = homework_statuses_json.get('current_date')
     return homework_statuses_json
 
 
 def send_message(message):
+    # tg_logger отправляет логи в Телеграм
     logger.info(f'Send_message is called. Message:\n\n{message}')
     return bot.send_message(CHAT_ID, message)
 
@@ -78,37 +79,20 @@ def main():
     # словарь-кэш для хранения полученных домашек:
     current_status = {'homework': None}
 
-    # current_status = {
-    #     'homework': {
-    #         'date_updated': '2021-06-11T11:02:41Z',
-    #         'homework_name': 'I-Iub__hw05_final.zip',
-    #         'id': 122744,
-    #         'lesson_name': 'Проект спринта 6',
-    #         'reviewer_comment': 'Отлично, принято :)',
-    #         'status': 'approved'
-    #     }
-    # }  # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    # логирование и отправка сообщения в TG о том, что бот включился:
+    # tg_logger отправляет логи в Телеграм:
     logger.debug('Bot launched')
 
     while True:
         try:
-            # получаем домашки за последний месяц
-            homeworks = get_homeworks(current_timestamp - 2629743).get('homeworks')
-            
-            # homeworks = None
-            # print('works:______________')
-            # pprint.pprint(homeworks)
-            # print(homeworks.get('homeworks'))
-            # print(type(homeworks.get('homeworks')))
+            # получаем домашки за последний месяц:
+            homeworks = get_homeworks(
+                current_timestamp - 2629743).get('homeworks')
 
-            # проверяем, что полученный список домашек не None и не пустой список,
-            # чтобы без ошибок получить последнюю домашку с помощью индекса
+            # проверяем, что полученный список домашек не None и не пустой
+            # список, чтобы без ошибок получить последнюю домашку с
+            # помощью индекса
             if homeworks is not None and homeworks != []:
                 homework = homeworks[0]
-                # print('homework:____________________')
-                # pprint.pprint(homework)
             else:
                 homework = None
 
@@ -117,24 +101,20 @@ def main():
             # когда current_status (кэш-словарь), очевидно,
             # может отличаться от очередной запрошенной домашки:
             if (current_status.get('homework') != homework
-               and current_status.get('homework') is not None):  # РАСКОММЕНТИРОВАТЬ !!!!!!!!!!!!!!!
-
-            # if current_status.get('homework') != homework:  # УБРАТЬ!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                
+               and current_status.get('homework') is not None):
+                # tg_logger отправляет логи в Телеграм:
                 logger.info('Изменение статуса домашки')
                 message = parse_homework_status(homework)
                 send_message(message)
                 # сохраняем последнее состояние домашки, чтобы
                 # сравнивать с полученной в очередном запросе домашкой:
                 current_status['homework'] = homework
-            
-            time.sleep(5)  # Опрашивать раз в пять секунд
-            
-            # time.sleep(20 * 60)  # Опрашивать раз в двадцать минут
+
+            time.sleep(20 * 60)  # Опрашивать раз в двадцать минут
 
         except Exception as e:
             print(f'Бот упал с ошибкой: {e}')
-            logger.error(f'{e}')
+            logger.error(f'{e}')  # tg_logger отправляет логи в Телеграм
             time.sleep(5)
 
 
