@@ -9,10 +9,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+MONTH_TIMESTAMP = 2629743  # месяц в формате timestamp
+PARANOID = 13  # см. функцию get_homeworks
 PRAKTIKUM_TOKEN = os.getenv('PRAKTIKUM_TOKEN')
 PRAKTIKUM_URL = 'https://praktikum.yandex.ru/api/user_api/homework_statuses/'
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -53,16 +55,24 @@ current_date = {'timestamp': None}
 
 def get_homeworks(current_timestamp):
     if current_date.get('timestamp') is not None:
-        # -13 - чтобы снизить вероятность изменения статуса домашки между
+        # PARANOID - чтобы снизить вероятность изменения статуса домашки между
         # запросами, немного наложим интервалы времени от "from_date" до
         # момента запроса:
-        payload = {'from_date': current_date.get('timestamp') - 13}
+        payload = {'from_date': current_date.get('timestamp') - PARANOID}
     else:
         payload = {'from_date': current_timestamp}
+
     headers = {'Authorization': f'OAuth {PRAKTIKUM_TOKEN}'}
-    homework_statuses = requests.get(
-        PRAKTIKUM_URL, headers=headers, params=payload
-    )
+
+    try:
+        homework_statuses = requests.get(
+            PRAKTIKUM_URL, headers=headers, params=payload
+        )
+    except Exception as e:
+        print(f'Возникла ошибка при запросе requests: {e}')
+        # tg_logger отправляет логи в Телеграм:
+        logger.error(f'Возникла ошибка при запросе requests: {e}')
+
     homework_statuses_json = homework_statuses.json()
     current_date['timestamp'] = homework_statuses_json.get('current_date')
     return homework_statuses_json
@@ -86,7 +96,7 @@ def main():
         try:
             # получаем домашки за последний месяц:
             homeworks = get_homeworks(
-                current_timestamp - 2629743).get('homeworks')
+                current_timestamp - MONTH_TIMESTAMP).get('homeworks')
 
             # проверяем, что полученный список домашек не None и не пустой
             # список, чтобы без ошибок получить последнюю домашку с
