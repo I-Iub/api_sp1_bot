@@ -42,10 +42,10 @@ def parse_homework_status(homework):
     }
     if homework is None:
         return '!Запрос вернул пустые данные!'
-    else:
-        homework_name = homework.get('homework_name')
-        verdict = verdicts.get(homework.get('status'))
-        return f'У вас проверили работу "{homework_name}":\n\n{verdict}'
+    
+    homework_name = homework.get('homework_name')
+    verdict = verdicts.get(homework.get('status'))
+    return f'У вас проверили работу "{homework_name}":\n\n{verdict}'
 
 
 # словарь-хеш для хранения "current_date",
